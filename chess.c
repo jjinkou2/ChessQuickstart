@@ -1,3 +1,4 @@
+
 /*
 ############################################################################
 # This program implements the game of chess on a processor that has multiple
@@ -232,17 +233,17 @@ void celebrate(int i)
       }
       LEDOUT(0);
       msleep(400);
-    }   
-    else {   
+    }
+    else {
       n = 1;
-      while(n-- > -1) 
+      while(n-- > -1)
       {
         LEDOUT(0xFF);
         msleep(1);
         LEDOUT(0);
         msleep(1);
       }
-    }    
+    }
 
 }
 
@@ -324,7 +325,7 @@ void LEDOUT(int val)
     DIRA |= 0xff << 16;
     OUTA = (OUTA & ~(0xff<<16)) | (val<<16);
     msleep(400);
-    OUTA = (OUTA & ~(0xff<<16));    
+    OUTA = (OUTA & ~(0xff<<16));
 }
 
 
@@ -757,7 +758,7 @@ void PerformMove(levelT *level)
             if (level->depth == 0) printf("CASTLE RIGHT\n\n");
             MovePiece(level, level->old_pos + 3, level->old_pos + 1);
         }
-        
+
         // Check for castle left
         if (level->new_pos == level->old_pos - 2)
         {
@@ -970,7 +971,7 @@ int IsCheckMate(levelT *level)
     }
 
     playdepth = playdepth_save;
-    
+
     return retval;
 }
 
@@ -1060,14 +1061,14 @@ int button2col(int button){
   int i=-1;
   while (i++ < 8){
     if (button & 1) col += i+1;
-    button >>=1; 
+    button >>=1;
   }
   return col;
 }
 char button2row(int button){
   if (button2col(button)<=8)
     return(8-button2col(button) + 'a');
-  else 
+  else
     return 0;
 }
 
@@ -1096,7 +1097,7 @@ int PerformPersonMove(levelT *level)
         inbuf[0]=button2row(touch);
         printf("%c",inbuf[0]);
         msleep(400);
-        touch=0; 
+        touch=0;
         while (touch==0) touch=getButtons();
         inbuf[1]=button2col(touch)+'0';
         printf("%c",inbuf[1]);
@@ -1106,7 +1107,7 @@ int PerformPersonMove(levelT *level)
         inbuf[2]=button2row(touch);
         printf("%c",inbuf[2]);
         msleep(400);
-        touch=0; 
+        touch=0;
         while (touch==0) touch=getButtons();
         inbuf[3]=button2col(touch)+'0';
         printf("%c\n",inbuf[3]);
@@ -1129,7 +1130,7 @@ int PerformPersonMove(levelT *level)
 
     next_level.depth = 0;
     memcpy(level, &next_level, sizeof(levelT));
-    
+
     return 1;
 }
 
@@ -1142,13 +1143,13 @@ static void GetColor()
       if (touch==1){
         printf("Y\n");
         compcolor = BLACK;
-      } 
+      }
       else if (touch==128){
         printf("N\n");
         compcolor = WHITE;
       }
-      else touch=0; 
-    }      
+      else touch=0;
+    }
 }
 
 // Prompt for the playing level
@@ -1197,7 +1198,7 @@ void PlayChess()
     human_playing = 1;
     GetPlayLevel();
     GetColor();
-    
+
     lcd = serial_open(LCD_RXPIN, LCD_TXPIN, 0, LCD_BAUD);
 
   writeChar(lcd, ON);
@@ -1207,7 +1208,7 @@ void PlayChess()
   writeChar(lcd,CR);
     dprint(lcd,"==============");
     msleep(5);
-    
+
     Initialize(&level);
 
 
@@ -1217,7 +1218,7 @@ void PlayChess()
             retval = PerformComputerMove(&level);
         else
             retval = PerformPersonMove(&level);
-            
+
         if (!retval) return;
 
         if (IsCheck(&level))
@@ -1233,7 +1234,7 @@ void PlayChess()
             compcolor ^= COLOR_MASK;
     }
 }
-  
+
 int main()
 {
     sleep(1);
@@ -1245,7 +1246,7 @@ int main()
 //    while(button==0) button=getButtons();
 //    printf("%c\n",button2row(button));
 //    button=0;
-//  }    
+//  }
     srand(1);
 
 #if NUM_PTHREADS
@@ -1286,7 +1287,7 @@ void InitializeMainStack()
 {
     int i;
     int retval = (int)malloc(4);
-    
+
     if (retval)
     {
         mainstackstart = (retval & ~3) + 80;
@@ -1294,9 +1295,9 @@ void InitializeMainStack()
         free((void *)retval);
         retval = (int)(&retval) - retval;
         for (i = mainstackstart; i < mainstackend; i += 4)
-            *(int *)i = 0xdeadbeef; 
+            *(int *)i = 0xdeadbeef;
     }
-    
+
     //printf("Main stack space = %d bytes\n", retval);
 }
 
@@ -1310,7 +1311,7 @@ void CheckPthreadStacks()
     }
     if (j - mainstackstart < 100)
         printf("Main stack space available = %d bytes\n", j - mainstackstart);
-        
+
     for (i = 0; i < NUM_PTHREADS; i++)
     {
         for (j = 0; j < PTHREAD_STACKSIZE/4; j++)
@@ -1336,7 +1337,7 @@ void GenerateQueuedMoves(levelT *level)
 static int GetQueuedItem()
 {
     int index;
-    
+
 #ifdef __PROPELLER__
     while (lockset(queue_lock));
     index = queue_index;
@@ -1410,11 +1411,11 @@ void AnalyzeMoveQueue(levelT *level)
         }
         if (index == NUM_PTHREADS) break;
     }
-    
+
 #ifdef __PROPELLER__
     CheckPthreadStacks();
 #endif
-    
+
     // Find the best move from the different threads
     for (index = 0; index < NUM_PTHREADS; index++)
     {
@@ -1454,7 +1455,7 @@ void StartPthreads(void)
         }
     }
 
-    InitializeMainStack();    
+    InitializeMainStack();
     queue_lock = locknew();
 }
 #else
