@@ -80,6 +80,10 @@
 #define ESE (E + S + E)
 #define ENE (E + N + E)
 
+// for LCD
+#define BKSPACE 8
+#define CLR 12
+
 typedef struct levelS {
     uchar board[BOARD_SIZE];
     short value;
@@ -195,9 +199,8 @@ int touch;              // touchpad number
 
 // for the LCD
 const int ON  = 22;
-const int CLR = 12;
-const int LCD_RXPIN = 12;
-const int LCD_TXPIN = 12;
+const int LCD_RXPIN = 10;
+const int LCD_TXPIN = 10;
 const int LCD_BAUD = 19200;
 serial *lcd;
 
@@ -652,7 +655,7 @@ void RemovePiece(levelT *level, int position)
 
     if (entry == OUT_OF_BOUNDS)
     {
-        printf("RemovePiece: %d is out of bounds\n", position);
+        dprint(lcd,"RemovePiece: %d is out of bounds\n", position);
         exit(1);
     }
 
@@ -679,13 +682,13 @@ void AddPiece(levelT *level, int position, int entry)
 
     if (brd[position])
     {
-        printf("AddPiece: %d occupied\n", position);
+        dprint(lcd,"AddPiece: %d occupied\n", position);
         exit(1);
     }
 
     if (brd[position])
     {
-        printf("RemovePiece: %d is out of bounds\n", position);
+        dprint(lcd,"RemovePiece: %d is out of bounds\n", position);
         exit(1);
     }
 
@@ -716,7 +719,7 @@ void MovePiece(levelT *level, int old_pos, int new_pos)
 
     if (entry1 == OUT_OF_BOUNDS)
     {
-        printf("MovePiece: %d is out of bounds\n", old_pos);
+        dprint(lcd,"MovePiece: %d is out of bounds\n", old_pos);
         exit(1);
     }
 
@@ -755,14 +758,12 @@ void PerformMove(levelT *level)
         // Check for castle right
         if (level->new_pos == level->old_pos + 2)
         {
-            if (level->depth == 0) printf("CASTLE RIGHT\n\n");
             MovePiece(level, level->old_pos + 3, level->old_pos + 1);
         }
 
         // Check for castle left
         if (level->new_pos == level->old_pos - 2)
         {
-            if (level->depth == 0) printf("CASTLE LEFT\n\n");
             MovePiece(level, level->old_pos - 4, level->old_pos - 1);
         }
     }
@@ -779,7 +780,6 @@ void PerformMove(levelT *level)
             // Check for en passant capture
             else if (level->new_pos == en_passant - BOARD_WIDTH)
             {
-                if (level->depth == 0) printf("EN PASSANT\n\n");
                 RemovePiece(level, en_passant);
             }
             // Promote pawn to queen if reaching final rank
@@ -800,7 +800,6 @@ void PerformMove(levelT *level)
             // Check for en passant capture
             else if (level->new_pos == en_passant + BOARD_WIDTH)
             {
-                if (level->depth == 0) printf("EN PASSANT\n\n");
                 RemovePiece(level, en_passant);
             }
             // Promote pawn to queen if reaching final rank
@@ -858,7 +857,7 @@ void AnalyzeMove(levelT *level)
 
     if (ptr[level->old_pos] == OUT_OF_BOUNDS || ptr[level->new_pos] == OUT_OF_BOUNDS)
     {
-        printf("BAD MOVE: %2.2x-%2.2x\n", level->old_pos, level->new_pos);
+        dprint(lcd,"BAD MOVE: %2.2x-%2.2x\n", level->old_pos, level->new_pos);
         exit(0);
     }
 
@@ -867,13 +866,6 @@ void AnalyzeMove(levelT *level)
 
     if (IsCheck(&next_level)) return;
 
-#ifdef DEBUG
-    if (!IsBoardValid(level))
-    {
-        printf("BAD BOARD!\n");
-        exit(0);
-    }
-#endif
 
     value = BoardValue(&next_level);
 
@@ -1002,15 +994,14 @@ int PerformComputerMove(levelT *level)
     if (level->best_old)
     {
         if (level->best_old == level->best_new)
-            printf("STALEMATE\n");
+            dprint(lcd,"STALEMATE");
         level->old_pos = level->best_old;
         level->new_pos = level->best_new;
         PerformMove(level);
     }
     else
     {
-        printf("Couldn't find a move\n");
-        printf("STALEMATE\n");
+        dprint(lcd,"STALEMATE");
     }
 
     value = BoardValue(level);
@@ -1023,17 +1014,19 @@ int PerformComputerMove(levelT *level)
 
     if (movenum > 200)
     {
-        printf("STALEMATE\n");
+        dprint(lcd,"STALEMATE");
         return 0;
     }
 
-    if (level->color)
-        printf("White's Move %d: ", ++movenum);
-    else
-        printf("Blacks's Move %d: ", movenum);
-    printf(" %s", PositionToString(level->best_old));
-    printf("%s\n", PositionToString(level->best_new));
-    // printf("value = %d, best_value = %d\n", value, level->best_value);
+    writeChar(lcd, CR);
+    if (level->color){
+        dprint(lcd,"CWht Move:");
+    }
+    else{
+        dprint(lcd,"CBlk Move:");
+    }
+    dprint(lcd,"%s", PositionToString(level->best_old));
+    dprint(lcd,"%s", PositionToString(level->best_new));
 
     return 1;
 }
@@ -1088,29 +1081,34 @@ int PerformPersonMove(levelT *level)
     // Loop until we get a valid move
     while (!validmove)
     {
+        writeChar(lcd, 128);
         if (level->color)
-            printf("White's Move %d: ", movenum);
+            dprint(lcd,"Wht Move:    ");
+
         else
-            printf("Blacks's Move %d: ", movenum);
+            dprint(lcd,"Blk Move:    ");
+
+        for (int i=0;i<4;i++) writeChar(lcd,BKSPACE);
         touch = 0;
         while (touch==0) touch=getButtons();
         inbuf[0]=button2row(touch);
-        printf("%c",inbuf[0]);
+        dprint(lcd,"%c",inbuf[0]);
         msleep(400);
         touch=0;
         while (touch==0) touch=getButtons();
         inbuf[1]=button2col(touch)+'0';
-        printf("%c",inbuf[1]);
+        dprint(lcd,"%c",inbuf[1]);
         msleep(400);
         touch = 0;
         while (touch==0) touch=getButtons();
         inbuf[2]=button2row(touch);
-        printf("%c",inbuf[2]);
+        dprint(lcd,"%c",inbuf[2]);
         msleep(400);
         touch=0;
         while (touch==0) touch=getButtons();
         inbuf[3]=button2col(touch)+'0';
-        printf("%c\n",inbuf[3]);
+        dprint(lcd,"%c",inbuf[3]);
+        msleep(400);
 
         if (toupper(inbuf[0]) == 'Q') return 0;
 
@@ -1137,19 +1135,22 @@ int PerformPersonMove(levelT *level)
 // Prompt person for color, and set the computer's color
 static void GetColor()
 {
-    printf("Do you want White (Y/N): ");
+    writeChar(lcd,CLR);
+    dprint(lcd,"Do you want \rWhite (Y/N): ");
     while(touch==0){
       touch=getButtons();
       if (touch==1){
-        printf("Y\n");
+        dprint(lcd,"Y");
         compcolor = BLACK;
       }
       else if (touch==128){
-        printf("N\n");
+        dprint(lcd,"N");
         compcolor = WHITE;
       }
       else touch=0;
     }
+        writeChar(lcd, CLR);
+        writeChar(lcd, CR);
 }
 
 // Prompt for the playing level
@@ -1162,8 +1163,9 @@ static void GetPlayLevel()
         writeChar(lcd, CLR);
         dprint(lcd,"Enter Play Level (1-%d): ", MAX_DEPTH);
         while(playdepth==0) playdepth=getButtons();
-        dprintf:(lcd,"%d",playdepth);
-        writeChar(lcd, CR);
+
+        dprint(lcd,"%d",playdepth);
+        msleep(500);
     }
 }
 
@@ -1196,19 +1198,19 @@ void PlayChess()
     int retval;
     levelT level;
     human_playing = 1;
-    GetPlayLevel();
-    GetColor();
 
     lcd = serial_open(LCD_RXPIN, LCD_TXPIN, 0, LCD_BAUD);
 
   writeChar(lcd, ON);
   writeChar(lcd, CLR);
   pause(5);
-  dprint(lcd,"Threaded Chess");
-  writeChar(lcd,CR);
+  dprint(lcd,"Threaded Chess\r");
+  //writeChar(lcd,CR);
     dprint(lcd,"==============");
-    msleep(5);
+    msleep(1500);
 
+    GetPlayLevel();
+    GetColor();
     Initialize(&level);
 
 
@@ -1222,7 +1224,7 @@ void PlayChess()
         if (!retval) return;
 
         if (IsCheck(&level))
-            printf("Illegal move into check %d\n", level.color);
+            dprint(lcd,"Illegal move into check %d\n", level.color);
         ChangeColor(&level);
         if (IsCheck(&level))
         {
@@ -1278,7 +1280,6 @@ levelT thread_level[NUM_PTHREADS];
 volatile int thread_active[NUM_PTHREADS];
 
 pthread_t threads[NUM_PTHREADS];
-#ifdef __PROPELLER__
 int stacks[NUM_PTHREADS][PTHREAD_STACKSIZE/4];
 int mainstackstart = 0;
 int mainstackend;
@@ -1322,7 +1323,6 @@ void CheckPthreadStacks()
             printf("Pthread %d stack space available = %d bytes\n", i, j * 4);
     }
 }
-#endif
 
 void GenerateQueuedMoves(levelT *level)
 {
