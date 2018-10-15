@@ -192,6 +192,14 @@ char inbuf[80];        // buffer for human input
 
 int touch;              // touchpad number
 
+// for the LCD
+const int ON  = 22;
+const int CLR = 12;
+const int LCD_RXPIN = 12;
+const int LCD_TXPIN = 12;
+const int LCD_BAUD = 19200;
+serial *lcd;
+
 // Prepare to search the next level
 static void InitializeNextLevel(levelT *level, levelT *next_level)
 {
@@ -264,43 +272,6 @@ int StringToPostion(char *str)
     return (7 - row + 2) * BOARD_WIDTH + col + 2;
 }
 
-// Print the board
-void PrintBoard(levelT *level)
-{
-    int i, j;
-    char piece;
-    uchar *ptr = level->board + (BOARD_WIDTH * BOARD_BORDER);
-
-    printf("\n ");
-    for (i = 0; i < 8; i++)
-    {
-        printf("\n-+---+---+---+---+---+---+---+---+");
-        printf("\n%c", '8' - i);
-        for (j = 2; j < 10; j++)
-        {
-            if (ptr[j])
-            {
-                if (ptr[j] & COLOR_MASK)
-                  piece = symbols[ptr[j] & PIECE_MASK];
-                else
-                  piece = tolower (symbols[ptr[j] & PIECE_MASK]);
-                
-                printf("| %c ", piece);
-            }
-          
-            else if ((i^j)&1)
-                printf("|---");
-            else
-                printf("|   ");
-        }
-        printf("|");
-        ptr += BOARD_WIDTH;
-    }
-    printf("\n-+---+---+---+---+---+---+---+---+\n ");
-    for (i = 'a'; i <= 'h'; i++) printf("| %c ", i);
-    printf("|");
-    printf("\n\n");
-}
 
 // Determine if the board position contains the current color's piece
 int IsMyPiece(levelT *level, int offs)
@@ -1084,13 +1055,6 @@ void CheckPersonMove(levelT *level)
     }
 }
 
-char button2row(int button){
-  if (button2col(button)<=8)
-    return(8-button2col(button) + 'a');
-  else 
-    return 0;
-}
-
 int button2col(int button){
   int col = 0;
   int i=-1;
@@ -1100,6 +1064,14 @@ int button2col(int button){
   }
   return col;
 }
+char button2row(int button){
+  if (button2col(button)<=8)
+    return(8-button2col(button) + 'a');
+  else 
+    return 0;
+}
+
+
 
 
 // Prompt for a move and check if it's valid
@@ -1186,9 +1158,11 @@ static void GetPlayLevel()
     while (playdepth < 1 || playdepth > MAX_DEPTH)
     {
         playdepth = 0;
-        printf("\nEnter Play Level (1-%d): ", MAX_DEPTH);
+        writeChar(lcd, CLR);
+        dprint(lcd,"Enter Play Level (1-%d): ", MAX_DEPTH);
         while(playdepth==0) playdepth=getButtons();
-        printf("%d\n",playdepth);
+        dprintf:(lcd,"%d",playdepth);
+        writeChar(lcd, CR);
     }
 }
 
@@ -1223,9 +1197,19 @@ void PlayChess()
     human_playing = 1;
     GetPlayLevel();
     GetColor();
+    
+    lcd = serial_open(LCD_RXPIN, LCD_TXPIN, 0, LCD_BAUD);
 
+  writeChar(lcd, ON);
+  writeChar(lcd, CLR);
+  pause(5);
+  dprint(lcd,"Threaded Chess");
+  writeChar(lcd,CR);
+    dprint(lcd,"==============");
+    msleep(5);
+    
     Initialize(&level);
-    PrintBoard(&level);
+
 
     while (1)
     {
@@ -1236,7 +1220,6 @@ void PlayChess()
             
         if (!retval) return;
 
-        PrintBoard(&level);
         if (IsCheck(&level))
             printf("Illegal move into check %d\n", level.color);
         ChangeColor(&level);
@@ -1253,13 +1236,10 @@ void PlayChess()
   
 int main()
 {
-#ifdef __PROPELLER__    
     sleep(1);
-#endif
 
-    printf("Threaded Chess\n");
-    printf("==============\n");
-    printf("Enter a move like : e2e4\nPress q to restart\n\n");
+
+
 //    int button=0;
 //    while(1) {
 //    while(button==0) button=getButtons();
