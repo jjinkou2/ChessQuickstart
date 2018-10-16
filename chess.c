@@ -958,6 +958,9 @@ int IsCheckMate(levelT *level)
 
     if (level->best_value > 5000 || level->best_value < -5000)
     {
+        writeChar(lcd, CLR);
+        dprint(lcd,"CHECKMATE");
+
         celebrate(1);
         retval = 1;
     }
@@ -1008,6 +1011,9 @@ int PerformComputerMove(levelT *level)
 
     if (value > 5000 || value < -5000)
     {
+                writeChar(lcd, CLR);
+        dprint(lcd,"CHECKMATE");
+
         celebrate(1);
         return 0;
     }
@@ -1229,6 +1235,9 @@ void PlayChess()
         if (IsCheck(&level))
         {
             if (IsCheckMate(&level)) break;
+            writeChar(lcd, CLR);
+            dprint(lcd,"CHECK");
+
             celebrate(0);
         }
 
