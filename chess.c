@@ -199,8 +199,8 @@ int touch;              // touchpad number
 
 // for the LCD
 const int ON  = 22;
-const int LCD_RXPIN = 10;
-const int LCD_TXPIN = 10;
+const int LCD_RXPIN = 12;
+const int LCD_TXPIN = 12;
 const int LCD_BAUD = 19200;
 serial *lcd;
 
