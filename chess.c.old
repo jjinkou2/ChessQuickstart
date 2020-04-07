@@ -83,6 +83,8 @@
 // for LCD
 #define BKSPACE 8
 #define CLR 12
+#define FAIL  1
+#define CHECK 2
 
 typedef struct levelS {
     uchar board[BOARD_SIZE];
@@ -109,6 +111,7 @@ void StartPthreads(void);
 void GenerateQueuedMoves(levelT *level);
 void    celebrate(int i);        // no more moles
 void    LEDOUT(int val);        // set leds to val
+void Music(int val); // play lcd piezo
 void    msleep(int t);          // sleep for t ms
 int     getButton(int n);       // used to get button states
 int     getButtons();           // used to get button states
@@ -203,6 +206,15 @@ const int LCD_RXPIN = 12;
 const int LCD_TXPIN = 12;
 const int LCD_BAUD = 19200;
 serial *lcd;
+int musicFail[] = { 216, 210, 226, 215, 226 };
+int musicCheck[] = { 216, 209, 223, 224, 225,210,226, 209,223,212,226 };
+
+void Music(int val){
+    if (val==FAIL)
+        for (int i =0;i<5;i++) writeChar(lcd, musicFail[i]);
+    if (val==CHECK)
+        for (int i =0;i<11;i++) writeChar(lcd, musicCheck[i]);
+}
 
 // Prepare to search the next level
 static void InitializeNextLevel(levelT *level, levelT *next_level)
@@ -489,6 +501,7 @@ void Pawn(levelT *level)
 void Knight(levelT *level)
 {
     int i;
+    uchar *brd = level->board;
 
     for (i = 0; i < 8; i++)
     {
@@ -511,6 +524,7 @@ void Bishop(levelT *level)
 void Rook(levelT *level)
 {
     int i;
+    uchar *brd = level->board;
 
     for (i = 4; i < 8; i++)
         AnalyzeDirectionalMoves(level, king_moves[i]);
@@ -710,6 +724,8 @@ void MovePiece(levelT *level, int old_pos, int new_pos)
     uchar *brd = level->board;
     int entry1 = brd[old_pos];
     int entry2 = brd[new_pos];
+    int piece = entry1 & PIECE_MASK;
+    int value = values[piece];
 
     if (entry1 == 0) return;
 
@@ -734,6 +750,7 @@ void PerformMove(levelT *level)
     int val1 = brd[level->old_pos];
     int val2 = brd[level->new_pos];
     int en_passant = level->en_passant;
+    int value = values[val2 & PIECE_MASK];
 
     // Clear en_passant flag.  May be set later.
     level->en_passant = 0;
@@ -954,7 +971,7 @@ int IsCheckMate(levelT *level)
     if (level->best_value > 5000 || level->best_value < -5000)
     {
         writeChar(lcd, CLR);
-        dprint(lcd,"Echec et Mat");
+        dprint(lcd,"CHECKMATE");
 
         celebrate(1);
         retval = 1;
@@ -992,22 +1009,22 @@ int PerformComputerMove(levelT *level)
     if (level->best_old)
     {
         if (level->best_old == level->best_new)
-            dprint(lcd,"Pat");
+            dprint(lcd,"STALEMATE");
         level->old_pos = level->best_old;
         level->new_pos = level->best_new;
         PerformMove(level);
     }
     else
     {
-        dprint(lcd,"Pat");
+        dprint(lcd,"STALEMATE");
     }
 
     value = BoardValue(level);
 
     if (value > 5000 || value < -5000)
     {
-        writeChar(lcd, CLR);
-        dprint(lcd,"Echec et Mat");
+                writeChar(lcd, CLR);
+        dprint(lcd,"CHECKMATE");
 
         celebrate(1);
         return 0;
@@ -1015,18 +1032,16 @@ int PerformComputerMove(levelT *level)
 
     if (movenum > 200)
     {
-        dprint(lcd,"Pat");
+        dprint(lcd,"STALEMATE");
         return 0;
     }
 
+    writeChar(lcd, CR);
     if (level->color){
-        writeChar(lcd, 128);
-        dprint(lcd,"CPU Blanc:");
+        dprint(lcd,"CWht Move:");
     }
     else{
-        writeChar(lcd, 148);
-        //writeChar(lcd, CR);
-        dprint(lcd,"CPU Noir:");
+        dprint(lcd,"CBlk Move:");
     }
     dprint(lcd,"%s", PositionToString(level->best_old));
     dprint(lcd,"%s", PositionToString(level->best_new));
@@ -1059,11 +1074,11 @@ int button2col(int button){
     if (button & 1) col += i+1;
     button >>=1;
   }
-  return 9-col;
+  return col;
 }
 char button2row(int button){
   if (button2col(button)<=8)
-    return(button2col(button) -1 + 'a');
+    return(8-button2col(button) + 'a');
   else
     return 0;
 }
@@ -1084,16 +1099,12 @@ int PerformPersonMove(levelT *level)
     // Loop until we get a valid move
     while (!validmove)
     {
+        writeChar(lcd, 128);
         if (level->color)
-            {
-                writeChar(lcd, 128);
-                dprint(lcd,"Blanc:    ");
-            }
+            dprint(lcd,"Wht Move:    ");
+
         else
-            {
-                writeChar(lcd, 148);
-                dprint(lcd,"Noir:    ");
-            }
+            dprint(lcd,"Blk Move:    ");
 
         for (int i=0;i<4;i++) writeChar(lcd,BKSPACE);
         touch = 0;
@@ -1131,6 +1142,7 @@ int PerformPersonMove(levelT *level)
             memcpy(&next_level, level, sizeof(levelT));
             MoveIfMyPiece(&next_level);
         }
+        if (validmove==0) Music(FAIL);
     }
 
     next_level.depth = 0;
@@ -1143,22 +1155,21 @@ int PerformPersonMove(levelT *level)
 static void GetColor()
 {
     writeChar(lcd,CLR);
-    dprint(lcd,"Noir ou BLANC ?");
+    dprint(lcd,"Do you want \rWhite (Y/N): ");
     while(touch==0){
       touch=getButtons();
       if (touch==1){
-        dprint(lcd,"\rBlanc");
+        dprint(lcd,"Y");
         compcolor = BLACK;
       }
       else if (touch==128){
-        dprint(lcd,"\rNoir");
+        dprint(lcd,"N");
         compcolor = WHITE;
       }
       else touch=0;
     }
-    msleep(500);
-    writeChar(lcd, CLR);
-    writeChar(lcd, CR);
+        writeChar(lcd, CLR);
+        writeChar(lcd, CR);
 }
 
 // Prompt for the playing level
@@ -1167,13 +1178,12 @@ static void GetPlayLevel()
     playdepth = 0;
     while (playdepth < 1 || playdepth > MAX_DEPTH)
     {
-        playdepth = 9;
+        playdepth = 0;
         writeChar(lcd, CLR);
-        dprint(lcd,"Entre le niveau du CPU (1-%d): ", MAX_DEPTH);
-        //while (playdepth==9) playdepth = button2col(getButtons());
-        playdepth = button2col(getButtons());
+        dprint(lcd,"Enter Play Level (1-%d): ", MAX_DEPTH);
+        while(playdepth==0) playdepth=getButtons();
 
-       if(playdepth !=9) dprint(lcd,"%d",playdepth);
+        dprint(lcd,"%d",playdepth);
         msleep(500);
     }
 }
@@ -1239,7 +1249,7 @@ void PlayChess()
         {
             if (IsCheckMate(&level)) break;
             writeChar(lcd, CLR);
-            dprint(lcd,"Echec");
+            dprint(lcd,"CHECK");
 
             celebrate(0);
         }
